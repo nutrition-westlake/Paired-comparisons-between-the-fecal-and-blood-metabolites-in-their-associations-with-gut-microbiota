@@ -1,4 +1,4 @@
-#### Main codes for paired comparisons between the fecal and blood metabolites in their associations with gut microbiota and cardiometabolic diseases (for questions, please contact Kui Deng, dengkui@westlake.edu.cn or dengkui_stat@163.com)
+#### Main codes for Paired fecal and blood metabolomics associate gut microbiota and cardiometabolic diseases (for questions, please contact Kui Deng, dengkui@westlake.edu.cn or dengkui_stat@163.com)
 #1.Correlations between paired fecal and blood metabolites
 #2.Paired comparison between fecal and blood metabolome in their associations with gut microbiota and microbial pathways
 #3.Associations of well-predicted metabolites with cardiometabolic diseases
@@ -132,27 +132,23 @@ Model_fit <- lightgbm_model_GM(X=data_all_species_new,Y=data_Metabolite_temp,kfo
 r_value_temp <- Model_fit$r_value
 p_value_temp <- Model_fit$p_value
 
-##Heterogeneity between the associations of gut microbiota/pathways with paired fecal and blood metabolites 
-library(metafor)
-Heterogeneity_overlap_metabolites <- c()
+##Differences between the associations of gut microbiota/pathways with paired fecal and blood metabolites 
+library(cocor)
+Corr_diff_overlap_metabolites <- c()
 for (i in 1:nrow(data_temp_A)){
   cat("#########",i,"###########\n")
-  data_temp_case <- data_temp_A[i,c("r","se")]
-  data_temp_control  <-data_temp_B[i,c("r","se")]
   
-  data_test_temp <- rbind(data_temp_case,data_temp_control)
-  meta_result_temp <- rma(yi=r,sei=se,data=data_test_temp,method="REML")
+  corr_temp <- cocor.dep.groups.overlap(r.jk=data_temp_A$r[i],r.jh=data_temp_B$r[i],
+                                        r.kh=data_temp_C$r.rho[i],n=1007,test="hittner2003")
+  
+  
   result_temp <- data.frame(Metabolite=data_temp_A$sample[i],r_fecal=data_temp_A$r[i],
-                            r_serum=data_temp_B$r[i],
-                            r_meta=meta_result_temp$b,pval_meta=meta_result_temp$pval,
-                            heterogeneity=meta_result_temp$QEp,I2=meta_result_temp$I2,stringsAsFactors=F
-  )
-  
-  
-  Heterogeneity_overlap_metabolites <- rbind(Heterogeneity_overlap_metabolites,result_temp)
+                            r_serum=data_temp_B$r[i],heterogeneity=corr_temp@hittner2003$p.value)
+  Corr_diff_overlap_metabolites <- rbind(Corr_diff_overlap_metabolites,result_temp)
 }
 
-Heterogeneity_overlap_metabolites$heterogeneity_FDR <- p.adjust(Heterogeneity_overlap_metabolites$heterogeneity,method="fdr")
+
+Corr_diff_overlap_metabolites$heterogeneity_FDR <- p.adjust(Corr_diff_overlap_metabolites$heterogeneity,method="fdr")
 
 
 ##Validation in the independent validation cohort
@@ -173,22 +169,3 @@ p_value_temp <- cor_temp$p.value
 #using the multivariable logistic model
 fit_temp <- glm(factor(phenotype)~Metabolite+age_follow+sex+BMI_follow+smoke_follow+alc_follow+factor(edu3)+factor(income4)+MET+energy,data=data_fit_temp,family=binomial(link="logit"))
 
-#Heterogeneity between the associations obtained in the discovery and validation cohort
-library(metafor)
-Heterogeneity_metabolite_phenotype <- c()
-for (i in 1:nrow(data_temp_A)){
-  cat("#########",i,"###########\n")
-  data_temp_discovery <- data_temp_A[i,c("Estimate","Std. Error")]
-  data_temp_Validation  <-data_temp_B[i,c("Estimate","Std. Error")]
-  
-  data_temp <- rbind(data_temp_discovery,data_temp_Validation)
-  meta_result_temp <- rma(yi=Estimate,sei=`Std. Error`,data=data_temp,method="REML")
-  result_temp <- data.frame(Metabolite=data_temp_A$sample[i],Phenotype=data_temp_A$phenotype[i],beta_discovery=data_temp_A$Estimate[i],beta_CI_low_discovery=data_temp_A$`2.5 %`[i],beta_CI_high_discovery=data_temp_A$`97.5 %`[i],
-                            beta_validation=data_temp_B$Estimate[i],beta_CI_low_validation=data_temp_B$`2.5 %`[i],beta_CI_high_validation=data_temp_B$`97.5 %`[i],
-                            beta_meta=meta_result_temp$b,pval_discovery=data_temp_A$`Pr(>|t|)`[i],
-                            pval_validation=data_temp_B$`Pr(>|t|)`[i],pval_meta=meta_result_temp$pval,
-                            heterogeneity=meta_result_temp$QEp,I2=meta_result_temp$I2,stringsAsFactors=F
-  )
-  
-  Heterogeneity_metabolite_phenotype <- rbind(Heterogeneity_metabolite_phenotype,result_temp)
-}
